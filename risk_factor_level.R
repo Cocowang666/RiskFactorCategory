@@ -17,7 +17,8 @@ sample_bmi <- sample %>%
                          TRUE ~ NA_character_
     )
   ) %>% 
-  select(ppid,bmi_risk)
+  select(ppid,bmi_risk) %>% 
+  ungroup()
 
 #alcohol#
 sample_alcohol0 <- sample %>% 
@@ -29,7 +30,8 @@ sample_alcohol0 <- sample %>%
     str_detect(alcohol,'Heavy')|str_detect(alcohol,'Very Heavy')|str_detect(alcohol,'Above') ~ 'High Risk',
     str_detect(alcohol,'Rarely')|str_detect(alcohol,'Moderate')|str_detect(alcohol,'Non-drinker') ~ 'Low Risk',
     TRUE ~ as.character(alcohol)
-  ))
+  )) %>% 
+  ungroup()
 
 diagosis_alcohol <- GP_diagnosis %>% 
   filter(diagnosis=='Alcoholic Related') %>% 
@@ -37,7 +39,8 @@ diagosis_alcohol <- GP_diagnosis %>%
   group_by(ppid) %>%
   arrange(datetime) %>% 
   slice_tail(n=1) %>% 
-  mutate(diagnosis = 'High Risk')
+  mutate(diagnosis = 'High Risk') %>% 
+  ungroup()
 
 sample_alcohol <- sample_alcohol0 %>% 
   full_join(diagosis_alcohol,by='ppid')%>% 
@@ -47,6 +50,7 @@ sample_alcohol <- sample_alcohol0 %>%
     max(datetime,date,na.rm = TRUE) == date ~ alcohol,
     TRUE ~ NA_character_
   )) %>% 
+  ungroup() %>% 
   select(ppid,alcohol_risk)
 
 #blood pressure#
@@ -58,7 +62,8 @@ sample_systolic <- sample %>%
   slice_tail(n=2) %>% 
   summarise(
     avg_sbp = round(mean(systolic, na.rm=TRUE), 1),
-    date_sbp = max(date, na.rm=TRUE)
+    date_sbp = max(date, na.rm=TRUE),
+    .groups = "drop" 
   ) %>%
   mutate(systolic_risk = case_when(
     avg_sbp > 140 ~ 'High Risk',
@@ -75,7 +80,8 @@ sample_diastolic <- sample %>%
   slice_tail(n=2) %>% 
   summarise(
     avg_dbp = round(mean(diastolic, na.rm=TRUE), 1),
-    date_dbp = max(date, na.rm=TRUE)
+    date_dbp = max(date, na.rm=TRUE),
+    .groups = "drop" 
   ) %>%
   mutate(diastolic_risk = case_when(
     avg_dbp > 90 ~ 'High Risk',
@@ -89,8 +95,9 @@ sample_bp0 <- sample_systolic %>%
   mutate(bp = case_when(
     systolic_risk == 'High Risk' | diastolic_risk == 'High Risk' ~ 'High Risk',
     TRUE ~ 'Low Risk'
-  )) 
-select(ppid,bp,date_sbp)
+  )) %>% 
+  select(ppid,bp,date_sbp) %>% 
+  ungroup()
 
 diagosis_bp <- GP_diagnosis %>% 
   filter(diagnosis == 'Hypertension') %>% 
@@ -98,7 +105,8 @@ diagosis_bp <- GP_diagnosis %>%
   mutate(datetime=as.Date(datetime)) %>% 
   arrange(datetime) %>% 
   slice_tail(n = 1) %>% 
-  mutate(diagnosis='High Risk')
+  mutate(diagnosis='High Risk') %>% 
+  ungroup()
 
 sample_bp <- sample_bp0 %>% 
   full_join(diagosis_bp,by='ppid')%>% 
@@ -106,25 +114,29 @@ sample_bp <- sample_bp0 %>%
   mutate(bp_risk = case_when(max(datetime,date_sbp,na.rm = TRUE) == datetime ~ diagnosis,
                              max(datetime,date_sbp,na.rm = TRUE) == date_sbp ~ bp,
                              TRUE ~ NA_character_)) %>% 
+  ungroup() %>% 
   select(ppid,bp_risk)
+
 
 #smoking#
 sample_smoking0 <- sample %>% 
-  select(ppid,date,smoking)
+  select(ppid,date,smoking) %>% 
+  mutate(date = as.Date(date))
 
 sample_smoking1 <- sample_smoking0 %>% 
   group_by(ppid) %>% 
   arrange(date) %>% 
   slice_tail(n=1) %>% 
   mutate(smoking1 = case_when(smoking == 'Current Smoker' ~ 'High Risk',
-                             smoking == 'Non Smoker' ~ 'Low Risk',
-                             TRUE ~ NA_character_))
+                              smoking == 'Non Smoker' ~ 'Low Risk',
+                              TRUE ~ NA_character_)) %>% 
+  ungroup()
 
 sample_smoking2 <- sample_smoking0 %>% 
   group_by(ppid) %>% 
   arrange(date) %>% 
   mutate(prev_status = lag(smoking),prev_datetime=lag(date)) %>% 
-  filter(smoking == 'Ex Smoker' & (prev_status == 'Current Smoker'|prev_status == 'Non Smoker')) %>% 
+  filter(smoking == 'Ex Smoker' & (prev_status == 'Current Smoker'|prev_status == 'Non Smoker'))%>% 
   mutate(max_datetime = max(prev_datetime)) %>% 
   filter(prev_datetime >= max_datetime) %>% 
   ungroup() %>% 
@@ -137,16 +149,18 @@ sample_smoking3 <-sample_smoking2 %>%
   group_by(ppid) %>% 
   mutate(last_date = max(date),
          smoking3 = case_when(year(last_date)-year(trans_end_date) >= 5 ~ 'Low Risk',
-                             year(last_date)-year(trans_start_date) < 5 ~ 'Medium Risk',
-                             year(last_date)-year(trans_end_date) < 5 & year(last_date)-year(trans_start_date) >= 5 ~ 'Medium Risk',
-                             TRUE ~ NA_character_)) %>% 
+                              year(last_date)-year(trans_start_date) < 5 ~ 'Medium Risk',
+                              year(last_date)-year(trans_end_date) < 5 & year(last_date)-year(trans_start_date) >= 5 ~ 'Medium Risk',
+                              TRUE ~ NA_character_))%>% 
+  ungroup() %>% 
   select(ppid,smoking3)
 
 sample_smoking4 <- sample_smoking3 %>% 
   right_join(sample_smoking1,by='ppid')%>% 
   mutate(smoking4 = case_when(is.na(smoking3)~smoking1,
-                             is.na(smoking1)~smoking3,
-                             TRUE ~ as.character(smoking1))) %>% 
+                              is.na(smoking1)~smoking3,
+                              TRUE ~ as.character(smoking1))) %>% 
+  ungroup() %>% 
   select(ppid,smoking4)
 
 sample_smoking5 <- sample_smoking4 %>% 
@@ -160,6 +174,7 @@ sample_smoking5 <- sample_smoking4 %>%
          smoking5 = case_when(year(last_date)-year(first_date) < 5~'Medium Risk',
                               year(last_date)-year(first_date) >= 5~'Low Risk',
                               TRUE ~ NA_character_)) %>%
+  ungroup() %>% 
   select(ppid,smoking5)
 
 smoking_id <- sample_smoking0 %>% 
@@ -169,8 +184,8 @@ smoking_id <- sample_smoking0 %>%
 sample_smoking6 <- sample_smoking4 %>% 
   left_join(sample_smoking5,by='ppid') %>% 
   mutate(smoking_risk = case_when(is.na(smoking4) ~ smoking5,
-                             is.na(smoking5) ~ smoking4,
-                             TRUE ~ as.character(smoking5))) %>% 
+                                  is.na(smoking5) ~ smoking4,
+                                  TRUE ~ as.character(smoking5))) %>% 
   select(ppid,smoking_risk) %>% 
   distinct()
 
@@ -178,40 +193,45 @@ sample_smoking6 <- sample_smoking4 %>%
 sample_smoking <- smoking_id %>% 
   left_join(sample_smoking6,by='ppid') 
 
-
 #lipids#
 sample_ldl <- sample %>% 
   select(ppid,date,ldl) %>% 
+  mutate(date = as.Date(date)) %>% 
   group_by(ppid) %>% 
   arrange(date) %>% 
   slice_tail(n=1) %>% 
   rename(date_ldl = date)%>%
   mutate(ldl_risk = case_when(ldl >= 3 ~ 'High Risk',
-                         ldl < 3 ~ 'Low Risk',
-                         TRUE ~ NA_character_)) 
- 
+                              ldl < 3 ~ 'Low Risk',
+                              TRUE ~ NA_character_)) %>% 
+  ungroup()
+
 sample_hdl <- sample %>% 
   select(ppid,sex,date,hdl) %>% 
+  mutate(date = as.Date(date)) %>% 
   group_by(ppid) %>% 
   arrange(date) %>% 
   slice_tail(n=1) %>% 
   rename(date_hdl = date)%>%
   mutate(hdl_risk = case_when(hdl < 1.2 & sex == 'female' ~ 'High Risk',
-                         hdl < 1 & sex == 'male' ~ 'High Risk',
-                         hdl >= 1.2 & sex == 'female' ~ 'Low Risk',
-                         hdl >= 1 & sex == 'male' ~ 'Low Risk',
-                         TRUE ~ NA_character_)) 
- 
+                              hdl < 1 & sex == 'male' ~ 'High Risk',
+                              hdl >= 1.2 & sex == 'female' ~ 'Low Risk',
+                              hdl >= 1 & sex == 'male' ~ 'Low Risk',
+                              TRUE ~ NA_character_)) %>% 
+  ungroup()
+
 
 sample_tri <- sample %>% 
   select(ppid,date,triglycerides) %>% 
+  mutate(date = as.Date(date)) %>% 
   group_by(ppid) %>% 
   arrange(date) %>% 
   slice_tail(n=1) %>% 
   rename(date_tri = date)%>%
   mutate(tri_risk = case_when(triglycerides >= 2.3 ~ 'High Risk',
-                                   triglycerides < 2.3 ~ 'Low Risk',
-                                   TRUE ~ NA_character_)) 
+                              triglycerides < 2.3 ~ 'Low Risk',
+                              TRUE ~ NA_character_)) %>% 
+  ungroup()
 
 
 pres<- prescription %>% 
@@ -220,7 +240,8 @@ pres<- prescription %>%
   arrange(paiddate) %>%
   slice_tail(n=1) %>%
   select(ppid, paiddate, statin) %>% 
-  mutate(statin_risk=if_else(statin == 1,'High Risk',NA)) 
+  mutate(statin_risk=if_else(statin == 1,'High Risk',NA)) %>% 
+  ungroup()
 
 
 sample_lipids <- sample_ldl %>%
@@ -247,8 +268,5 @@ sample_lipids <- sample_ldl %>%
       TRUE ~ NA_character_
     )
   ) %>%
+  ungroup() %>% 
   select(ppid, lipid_risk)
-  
-  
-  
-
