@@ -68,7 +68,7 @@ smoking_risk <- sample %>%
     latest == "Non Smoker"                                       ~ "Low Risk",
     !is.na(quit_date) & year(last_date) - year(quit_date) >= 5   ~ "Low Risk",
     !is.na(quit_date)                                            ~ "Medium Risk",
-    year(last_date) - year(first_date) >= 5                      ~ "Low Risk",    # fallback
+    year(last_date) - year(first_date) >= 5                      ~ "Low Risk",    
     TRUE                                                         ~ "Medium Risk"))
 
 
