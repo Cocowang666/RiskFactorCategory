@@ -150,7 +150,7 @@ sample_smoking6 <- sample_smoking4 %>%
   distinct()
 
 
-sample_smoking1 <- smoking_id %>% 
+sample_smoking <- smoking_id %>% 
   left_join(sample_smoking6,by='ppid') 
 
 #lipids#
