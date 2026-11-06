@@ -86,6 +86,9 @@ write.csv(sample_bmi, "sample_bmi.csv", row.names = FALSE)
 * Code assumes there are no duplicate patients with identical `ppid` and `date` within each domain
 * If you add new diagnoses or prescriptions, the logic may need to be expanded
 * This simulated dataset differs from a real-world dataset, which may contain more missing values or irregular data.
-* The main purpose of this file is to demonstrate the coding approach for risk factor classification. 
+* The main purpose of this file is to demonstrate the coding approach for risk factor classification.
+* The code assumes the dataset contains no missing values.
+*  `prescription.csv` is assumed to contain only statin (lipid-lowering) prescriptions, so the most recent prescription is treated as the most recent statin.
+*  Time since quitting smoking is calculated in calendar years, with ≥ 5 years classified as Low Risk.
 
 ---
